@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="script.play-together-synced" name="Play Together Sync" version="1.0.0" provider-name="Catsmonster">
+	<requires>
+		<import addon="xbmc.python" version="3.0.0"/>
+	</requires>
+	<extension point="xbmc.python.script" library="addon.py">
+		<provides>executable</provides>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+		<platform>all</platform>
+		<summary lang="en">Sync two Kodi clients to watch videos together</summary>
+		<description lang="en">Watch videos together from far away</description>
+		<license>GNU General Public License, v2</license>
+		<language></language>
+		<email>mastercheatcomplete@gmail.com</email>
+		<assets>
+			<icon>icon.png</icon>
+			<fanart>fanart.png</fanart>
+		</assets>
+		<news>First iteration 22-01-2024</news>
+	</extension>
+</addon>
