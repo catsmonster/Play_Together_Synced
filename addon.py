@@ -1,11 +1,19 @@
+import xbmc
 import xbmcaddon
 import xbmcgui
-from resources.lib.firebase_handler import log_message, write_data_to_firebase, token_exists_in_firebase, \
-    cleanup_expired_tokens
-import random
-import string
+import os
+import sys
+addon_base_path = xbmcaddon.Addon().getAddonInfo('path')
+lib_path = os.path.join(addon_base_path, 'resources', 'lib')
+sys.path.append(lib_path)
+from resources.lib.firebase_handler import cleanup_expired_tokens, generate_short_token
 import threading
 import time
+
+
+def log_message(message, level=xbmc.LOGDEBUG):
+    addon_id = xbmcaddon.Addon().getAddonInfo('id')
+    xbmc.log(f'[{addon_id}] {message}', level)
 
 
 def show_token_dialog(token, duration=300):
@@ -13,7 +21,7 @@ def show_token_dialog(token, duration=300):
         # Countdown logic in a separate thread
         for i in range(duration, 0, -1):
             time.sleep(1)
-        cleanup_expired_tokens()  # Delete expired tokens after countdown
+        cleanup_expired_tokens(duration-1)  # Delete expired tokens after countdown
 
     dialog = xbmcgui.DialogProgress()
     dialog.create('Token Information')
@@ -31,27 +39,12 @@ def show_token_dialog(token, duration=300):
         message = f'Send this to the other partner: {token}\nExpires in: {time_format}'
         dialog.update(percent, message)
         time.sleep(1)
-
     dialog.close()
+    countdown_thread.join()  # Wait for the countdown thread to finish
 
-
-def generate_short_token(length=6):
-    """Generate a random alphanumeric token (lowercase and digits)."""
-    characters = string.ascii_lowercase + string.digits
-    generated_token = ''.join(random.choice(characters) for i in range(length))
-    return generated_token
-
-
-# Generate a token
-token = generate_short_token()
-while token_exists_in_firebase(token):
-    log_message('Token already exists in firebase, generating a new one')
-    token = generate_short_token()
-
-data = {'timestamp': int(time.time())}  # Current Unix time in seconds
-write_data_to_firebase(token, data)
 
 # Usage
 
 addon = xbmcaddon.Addon()
+token = generate_short_token()
 show_token_dialog(token, 300)
