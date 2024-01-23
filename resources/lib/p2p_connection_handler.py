@@ -1,5 +1,6 @@
 import requests
 import socket
+import json
 import xbmcgui
 
 
@@ -52,3 +53,27 @@ def start_listening(ip, port, timeout_seconds=300):
     finally:
         server_socket.close()
         xbmcgui.Dialog().notification('Connection', f"Stopped listening on {ip}:{port}")
+
+
+def send_connection_information_to_host(host_ip, host_port, client_public_ip, client_port):
+    message = {
+        'client_ip': client_public_ip,
+        'client_port': client_port
+    }
+    message_json = json.dumps(message)
+
+    try:
+        # Create a socket object
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            # Connect to the server
+            sock.connect((host_ip, host_port))
+
+            # Send the message
+            sock.sendall(message_json.encode())
+
+            # Optionally, receive a response back from the server
+            # response = sock.recv(1024)
+            # print("Received:", response.decode())
+
+    except Exception as e:
+        print(f"Error sending message to host: {e}")
