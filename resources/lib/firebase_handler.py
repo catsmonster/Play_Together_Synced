@@ -3,23 +3,32 @@ import requests
 import json
 import random
 import string
+from resources.lib.p2p_connection_handler import get_public_ip, get_dynamic_port
 
 firebase_url = 'https://play-together-sync-default-rtdb.europe-west1.firebasedatabase.app/'
 
 
-def generate_payload_json():
+def generate_connection_details_payload():
     """Generate a JSON payload with the current time."""
-    return json.dumps({'timestamp': int(time.time())})
+    public_ip = get_public_ip()
+    if public_ip is None:
+        return None
+    dynamic_port = get_dynamic_port()
+    if dynamic_port is None:
+        return None
+    return {'public_ip': public_ip,
+            'port': dynamic_port}
 
 
-
-def generate_short_token(length=6):
+def generate_token_and_send_to_firebase(length=6):
     """Generate a random alphanumeric token (lowercase and digits)."""
     characters = string.ascii_lowercase + string.digits
     generated_token = ''.join(random.choice(characters) for i in range(length))
     if token_exists_in_firebase(generated_token):
-        return generate_short_token(length)
-    data = {'timestamp': int(time.time())}  # Current Unix time in seconds
+        return generate_token_and_send_to_firebase(length)
+    encrypted_payload = xor_encrypt_decrypt(json.dumps(generate_connection_details_payload()), generated_token)
+    data = {'timestamp': int(time.time()),  # Current Unix time in seconds',
+            'payload': encrypted_payload}  # Current Unix time in seconds
     write_data_to_firebase(generated_token, data)
     return generated_token
 
@@ -55,6 +64,17 @@ def cleanup_expired_tokens(expiration_seconds=300):
 def xor_encrypt_decrypt(data, key):
     key = str(key)
     return ''.join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(data))
+
+
+def get_token_payload(token):
+    response = requests.get(f'{firebase_url}/tokens/{token}.json')
+    data = response.json()
+
+    # Check if the response contains the 'payload' key
+    if 'payload' in data:
+        return json.loads(xor_encrypt_decrypt(data['payload'], token))
+    else:
+        return None  # or handle the missing 'payload' case as needed
 
 #
 # # Example usage

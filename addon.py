@@ -6,7 +6,8 @@ import sys
 addon_base_path = xbmcaddon.Addon().getAddonInfo('path')
 lib_path = os.path.join(addon_base_path, 'resources', 'lib')
 sys.path.append(lib_path)
-from resources.lib.firebase_handler import cleanup_expired_tokens, generate_short_token
+from resources.lib.firebase_handler import cleanup_expired_tokens, generate_token_and_send_to_firebase, \
+    get_token_payload
 import threading
 import time
 
@@ -46,5 +47,11 @@ def show_token_dialog(token, duration=300):
 # Usage
 
 addon = xbmcaddon.Addon()
-token = generate_short_token()
-show_token_dialog(token, 300)
+token = generate_token_and_send_to_firebase()
+ip_address = get_token_payload(token)['public_ip']
+port = get_token_payload(token)['port']
+if ip_address is None or port is None:
+    xbmc.log("failed to load", xbmc.LOGDEBUG)
+else:
+    log_message(f'IP: {ip_address}, Port: {port}')
+show_token_dialog(token, 20)
