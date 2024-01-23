@@ -20,13 +20,13 @@ def generate_connection_details_payload():
             'port': dynamic_port}
 
 
-def generate_token_and_send_to_firebase(length=6):
+def generate_token_and_send_to_firebase(length=6, connection_payload=None):
     """Generate a random alphanumeric token (lowercase and digits)."""
     characters = string.ascii_lowercase + string.digits
     generated_token = ''.join(random.choice(characters) for i in range(length))
     if token_exists_in_firebase(generated_token):
-        return generate_token_and_send_to_firebase(length)
-    encrypted_payload = xor_encrypt_decrypt(json.dumps(generate_connection_details_payload()), generated_token)
+        return generate_token_and_send_to_firebase(length, connection_payload)
+    encrypted_payload = xor_encrypt_decrypt(json.dumps(connection_payload), generated_token)
     data = {'timestamp': int(time.time()),  # Current Unix time in seconds',
             'payload': encrypted_payload}  # Current Unix time in seconds
     write_data_to_firebase(generated_token, data)
