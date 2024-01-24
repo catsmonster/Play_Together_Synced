@@ -1,7 +1,8 @@
 import requests
 import socket
-import json
 import xbmcgui
+from playback_control import await_partner_playback
+import threading
 
 
 def get_public_ip():
@@ -25,55 +26,36 @@ def get_dynamic_port():
 
 
 def start_listening(ip, port, timeout_seconds=300):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((ip, port))
-    server_socket.listen()
-    xbmcgui.Dialog().notification('Connection', f"Listening on {ip}:{port}")
-    server_socket.settimeout(timeout_seconds)
-    try:
-        client_socket, addr = server_socket.accept()
-        xbmcgui.Dialog().notification('Connection', f"Connected to {addr}")
-        # Remove the timeout after the first connection
-        client_socket.settimeout(None)
-        while True:
-            data = client_socket.recv(1024)
-            if not data:
-                break  # Client disconnected
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind((ip, port))
+        server_socket.listen()
+        xbmcgui.Dialog().notification('Connection', f"Listening on {ip}:{port}")
+        server_socket.settimeout(timeout_seconds)
+        try:
+            client_socket, addr = server_socket.accept()
+            xbmcgui.Dialog().notification('Connection', f"Connected to {addr}")
+            server_socket.close()
+            await_playback_start_thread = threading.Thread(target=await_partner_playback, args=[client_socket])
+            await_playback_start_thread.start()
+        except socket.timeout:
+            xbmcgui.Dialog().notification('Connection', f"Connection timed out")
 
-            message = data.decode()
-            xbmcgui.Dialog().notification('Connection', f"Received: {message}")
-            if message == "STOP":
-                xbmcgui.Dialog().notification('Connection', f"Stopping connection")
-                break
-
-        client_socket.close()
-    except socket.timeout:
-        xbmcgui.Dialog().notification('Connection', f"Connection timed out")
-
-    finally:
-        server_socket.close()
-        xbmcgui.Dialog().notification('Connection', f"Stopped listening on {ip}:{port}")
+        finally:
+            server_socket.close()
+            xbmcgui.Dialog().notification('Connection', f"Stopped listening on {ip}:{port}")
 
 
-def send_connection_information_to_host(host_ip, host_port, client_public_ip, client_port):
-    message = {
-        'client_ip': client_public_ip,
-        'client_port': client_port
-    }
-    message_json = json.dumps(message)
-
-    try:
-        # Create a socket object
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            # Connect to the server
-            sock.connect((host_ip, host_port))
-
-            # Send the message
-            sock.sendall(message_json.encode())
-
-            # Optionally, receive a response back from the server
-            # response = sock.recv(1024)
-            # print("Received:", response.decode())
-
-    except Exception as e:
-        print(f"Error sending message to host: {e}")
+def join_p2p_session(ip, port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+        try:
+            client_socket.connect((ip, port))
+            xbmcgui.Dialog().notification('Connection', f"Connected to {ip}:{port}")
+            await_playback_start_thread = threading.Thread(target=await_partner_playback, args=[client_socket])
+            await_playback_start_thread.start()
+        except ConnectionRefusedError:
+            xbmcgui.Dialog().notification('Connection', f"Connection refused")
+        except TimeoutError:
+            xbmcgui.Dialog().notification('Connection', f"Connection timed out")
+        finally:
+            client_socket.close()
+            xbmcgui.Dialog().notification('Connection', f"Connection closed")

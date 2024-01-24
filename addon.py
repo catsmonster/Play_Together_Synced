@@ -11,7 +11,7 @@ from resources.lib.firebase_handler import cleanup_expired_tokens, generate_toke
 import threading
 import time
 import pyxbmct
-from resources.lib.p2p_connection_handler import start_listening
+from resources.lib.p2p_connection_handler import start_listening, join_p2p_session
 
 
 def show_join_dialog():
@@ -35,6 +35,7 @@ def show_join_dialog():
                 xbmcgui.Dialog().notification('Join Info', 'Error loading connection information')
             else:
                 xbmcgui.Dialog().notification('Join Info', f'IP: {ip_address}, Port: {port}')
+                join_p2p_session(ip_address, port)
     else:
         # User clicked Cancel
         xbmcgui.Dialog().notification('Join Info', 'Canceled')
@@ -70,7 +71,7 @@ class JoinOrCreateDialog(pyxbmct.AddonDialogWindow):
 
     def on_create_clicked(self):
         # Handle Create button click
-        timeout = 10
+        timeout = 60
         connection_payload = generate_connection_details_payload()
         public_ip = connection_payload['public_ip']
         port = connection_payload['port']
