@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <settings>
-    <setting id="setting_port" type="integer" label="Port" default="50000" range="1024-65535" />
+    <setting id="setting_port" type="integer" label="Port" default="0" range="1024-65535" />
 </settings>
