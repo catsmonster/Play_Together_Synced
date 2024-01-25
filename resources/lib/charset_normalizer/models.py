@@ -116,7 +116,7 @@ class CharsetMatch:
     @property
     def languages(self) -> List[str]:
         """
-        Return the complete list of possible languages found in decoded sequence.
+        Return the complete list of possible language found in decoded sequence.
         Usually not really useful. Returned list may be empty even if 'language' property return something != 'Unknown'.
         """
         return [e[0] for e in self._languages]

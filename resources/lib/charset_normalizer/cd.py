@@ -63,7 +63,7 @@ def encoding_unicode_range(iana_name: str) -> List[str]:
 
 def unicode_range_languages(primary_range: str) -> List[str]:
     """
-    Return inferred languages used with a unicode range.
+    Return inferred language used with a unicode range.
     """
     languages: List[str] = []
 
@@ -138,7 +138,7 @@ def alphabet_languages(
     characters: List[str], ignore_non_latin: bool = False
 ) -> List[str]:
     """
-    Return associated languages associated to given characters.
+    Return associated language associated to given characters.
     """
     languages: List[Tuple[str, float]] = []
 
