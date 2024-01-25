@@ -1,4 +1,6 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <settings>
-    <setting id="setting_port" type="integer" label="Port" default="0" range="1024-65535" />
+    <category label="30001">
+            <setting id="setting_port" type="integer" label="30002" default="0" range="1024-65535" />
+    </category>
 </settings>
