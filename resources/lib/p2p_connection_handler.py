@@ -3,26 +3,12 @@ import socket
 import xbmcgui
 from playback_control import await_partner_playback
 import threading
+import stun
 
 
-def get_public_ip():
-    try:
-        response = requests.get('https://api.ipify.org')
-        return response.text
-    except requests.RequestException as e:
-        print(f"Error fetching public IP: {e}")
-        return None
-
-
-def get_dynamic_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Bind the socket to your host and a port of 0
-    s.bind(('', 0))
-    # Get the dynamically assigned port
-    port = s.getsockname()[1]
-    # Don't forget to close the socket
-    s.close()
-    return port
+def get_nat_type_and_external_address():
+    nat_type, external_ip, external_port = stun.get_ip_info()
+    return nat_type, external_ip, external_port
 
 
 def start_listening(ip, port, timeout_seconds=300):

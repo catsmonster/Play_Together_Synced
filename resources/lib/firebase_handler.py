@@ -3,7 +3,7 @@ import requests
 import json
 import random
 import string
-from resources.lib.p2p_connection_handler import get_public_ip, get_dynamic_port
+from resources.lib.p2p_connection_handler import get_nat_type_and_external_address
 import pyscrypt
 import pyaes
 import os
@@ -14,14 +14,11 @@ firebase_url = 'https://play-together-sync-default-rtdb.europe-west1.firebasedat
 
 def generate_connection_details_payload():
     """Generate a JSON payload with the current time."""
-    public_ip = get_public_ip()
+    NAT_type, public_ip, external_port = get_nat_type_and_external_address()
     if public_ip is None:
         return None
-    dynamic_port = get_dynamic_port()
-    if dynamic_port is None:
-        return None
     return {'public_ip': public_ip,
-            'port': dynamic_port}
+            'port': external_port}
 
 
 def generate_token_and_send_to_firebase(length=6, connection_payload=None):
