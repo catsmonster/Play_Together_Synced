@@ -4,6 +4,10 @@ import json
 import random
 import string
 from resources.lib.p2p_connection_handler import get_public_ip, get_dynamic_port
+import pyscrypt
+import pyaes
+import os
+import base64
 
 firebase_url = 'https://play-together-sync-default-rtdb.europe-west1.firebasedatabase.app/'
 
@@ -26,9 +30,12 @@ def generate_token_and_send_to_firebase(length=6, connection_payload=None):
     generated_token = ''.join(random.choice(characters) for i in range(length))
     if token_exists_in_firebase(generated_token):
         return generate_token_and_send_to_firebase(length, connection_payload)
-    encrypted_payload = xor_encrypt_decrypt(json.dumps(connection_payload), generated_token)
+    encrypted_payload, salt = encrypt_with_salt(json.dumps(connection_payload), generated_token)
+    encoded_data = base64.b64encode(encrypted_payload).decode('utf-8')
+    encoded_salt = base64.b64encode(salt).decode('utf-8')
     data = {'timestamp': int(time.time()),  # Current Unix time in seconds',
-            'payload': encrypted_payload}  # Current Unix time in seconds
+            'payload': encoded_data,
+            'secret_sauce': encoded_salt}  # Current Unix time in seconds
     write_data_to_firebase(generated_token, data)
     return generated_token
 
@@ -61,9 +68,36 @@ def cleanup_expired_tokens(expiration_seconds=300):
                 requests.delete(f'{firebase_url}/tokens/{token}.json')
 
 
-def xor_encrypt_decrypt(data, key):
-    key = str(key)
-    return ''.join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(data))
+def derive_key(passphrase, salt=None):
+    if salt is None:
+        salt = os.urandom(16)  # Generate a new 16-byte salt
+    # Derive a 256-bit key using scrypt
+    key = pyscrypt.hash(password=passphrase.encode('utf-8'), salt=salt, N=1024, r=1, p=1, dkLen=32)
+    return key, salt
+
+
+def encrypt_data(data, key):
+    aes = pyaes.AESModeOfOperationCTR(key)
+    encrypted_data = aes.encrypt(data)
+    return encrypted_data
+
+
+def decrypt_data(encrypted_data, key):
+    aes = pyaes.AESModeOfOperationCTR(key)
+    decrypted_data = aes.decrypt(encrypted_data)
+    return decrypted_data.decode('utf-8')
+
+
+def encrypt_with_salt(data, passphrase):
+    key, salt = derive_key(passphrase)
+    encrypted_data = encrypt_data(data, key)
+    return encrypted_data, salt
+
+
+def decrypt_with_salt(encrypted_data, passphrase, salt):
+    key, _ = derive_key(passphrase, salt)
+    decrypted_data = decrypt_data(encrypted_data, key)
+    return decrypted_data
 
 
 def get_token_payload(token):
@@ -72,25 +106,9 @@ def get_token_payload(token):
 
     # Check if the response contains the 'payload' key
     if 'payload' in data:
-        return json.loads(xor_encrypt_decrypt(data['payload'], token))
+        salt = data['secret_sauce']
+        salt_bytes = base64.b64decode(salt)
+        encrypted_data_bytes = base64.b64decode(data['payload'])
+        return json.loads(decrypt_with_salt(encrypted_data_bytes, token, salt_bytes))
     else:
         return None  # or handle the missing 'payload' case as needed
-
-#
-# # Example usage
-# json_data = {
-#     "key1": "value1",
-#     "key2": "value2"
-# }
-#
-# # Convert JSON to string
-# json_str = json.dumps(json_data)
-#
-# # Encrypt
-# encrypted = xor_encrypt_decrypt(json_str, key)
-#
-# # Decrypt
-# decrypted = xor_encrypt_decrypt(encrypted, key)
-#
-# # Convert string back to JSON
-# json_decrypted = json.loads(decrypted)
