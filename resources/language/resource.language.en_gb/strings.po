@@ -1,5 +1,10 @@
-msgid "30001"
-msgstr "General Settings"
+msgid ""
+msgstr ""
 
-msgid "30002"
-msgstr "Insert static port (for port forwarding)"
+msgctxt "#30001"
+msgid "General Settings"
+msgstr ""
+
+msgctxt "#30002"
+msgid "Insert static port (for port forwarding)"
+msgstr ""
