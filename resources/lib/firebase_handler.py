@@ -21,20 +21,27 @@ def generate_connection_details_payload():
             'port': external_port}
 
 
-def generate_token_and_send_to_firebase(length=6, connection_payload=None):
+def generate_token(length=6):
     """Generate a random alphanumeric token (lowercase and digits)."""
     characters = string.ascii_lowercase + string.digits
     generated_token = ''.join(random.choice(characters) for i in range(length))
     if token_exists_in_firebase(generated_token):
-        return generate_token_and_send_to_firebase(length, connection_payload)
+        return generate_token(length)
+    return generated_token
+
+
+def encrypt_and_send_payload_to_firebase(generated_token, connection_payload, invoker):
     encrypted_payload, salt = encrypt_with_salt(json.dumps(connection_payload), generated_token)
     encoded_data = base64.b64encode(encrypted_payload).decode('utf-8')
     encoded_salt = base64.b64encode(salt).decode('utf-8')
     data = {'timestamp': int(time.time()),  # Current Unix time in seconds',
             'payload': encoded_data,
             'secret_sauce': encoded_salt}  # Current Unix time in seconds
+    if invoker == 'host':
+        data = {'host': data}
+    else:
+        data = {'client': data}
     write_data_to_firebase(generated_token, data)
-    return generated_token
 
 
 def token_exists_in_firebase(token):
@@ -48,10 +55,17 @@ def token_exists_in_firebase(token):
 
 
 def write_data_to_firebase(token, data):
-    response = requests.put(firebase_url + f'tokens/{token}.json', json.dumps(data))
+    # Construct the URL to the Firebase Realtime Database entry
+    url = firebase_url + f'tokens/{token}.json'
+
+    # Use PATCH request to update the entry without overwriting it
+    response = requests.patch(url, json.dumps(data))
+
+    # Check if the request was successful
     if response.status_code == 200:
         return True
-    return False
+    else:
+        return False
 
 
 def cleanup_expired_tokens(expiration_seconds=300):
@@ -61,7 +75,7 @@ def cleanup_expired_tokens(expiration_seconds=300):
 
     if tokens:
         for token, data in tokens.items():
-            if current_time - data['timestamp'] > expiration_seconds:
+            if current_time - data['host']['timestamp'] > expiration_seconds:
                 requests.delete(f'{firebase_url}/tokens/{token}.json')
 
 
@@ -102,10 +116,10 @@ def get_token_payload(token):
     data = response.json()
 
     # Check if the response contains the 'payload' key
-    if 'payload' in data:
-        salt = data['secret_sauce']
+    if 'payload' in data['host']:
+        salt = data['host']['secret_sauce']
         salt_bytes = base64.b64decode(salt)
-        encrypted_data_bytes = base64.b64decode(data['payload'])
+        encrypted_data_bytes = base64.b64decode(data['host']['payload'])
         return json.loads(decrypt_with_salt(encrypted_data_bytes, token, salt_bytes))
     else:
         return None  # or handle the missing 'payload' case as needed

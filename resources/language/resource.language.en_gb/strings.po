@@ -6,5 +6,5 @@ msgid "General Settings"
 msgstr ""
 
 msgctxt "#30002"
-msgid "Insert static port (for port forwarding)"
+msgid "Insert static port (for port forwarding range: 1024 to 65535)"
 msgstr ""

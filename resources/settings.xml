@@ -2,6 +2,6 @@
 <settings>
     <category label="30001">
             <!-- range="1024,1,65535" means: minimum 1024, each step is 1 (with keyboard/remote), maximum 65535 -->
-            <setting id="setting_port" type="slider" label="30002" default="1024" range="1024,1,65535" option="int"/>
+            <setting id="user_defined_port" type="number" label="30002" default="-1"  option="int" />
     </category>
 </settings>

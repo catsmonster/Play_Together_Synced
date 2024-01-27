@@ -3,25 +3,68 @@ import xbmcaddon
 import xbmcgui
 import os
 import sys
-addon_base_path = xbmcaddon.Addon().getAddonInfo('path')
-lib_path = os.path.join(addon_base_path, 'resources', 'lib')
-sys.path.append(lib_path)
-from resources.lib.firebase_handler import cleanup_expired_tokens, generate_token_and_send_to_firebase, \
-    get_token_payload, generate_connection_details_payload
 import threading
 import time
 import pyxbmct
+import json
+
+timeout = 60  # Timeout in seconds
+
+addon_base_path = xbmcaddon.Addon().getAddonInfo('path')
+lib_path = os.path.join(addon_base_path, 'resources', 'lib')
+sys.path.append(lib_path)
+from resources.lib.firebase_handler import cleanup_expired_tokens, generate_token, \
+    get_token_payload, generate_connection_details_payload, encrypt_and_send_payload_to_firebase
 from resources.lib.p2p_connection_handler import start_listening, join_p2p_session
+
+TOKEN_FILE_PATH = os.path.join(addon_base_path, 'resources', 'token.json')
+
+
+def save_token_data(token, timestamp):
+    try:
+        # Save the token and timestamp to a file
+        with open(TOKEN_FILE_PATH, 'w') as f:
+            json.dump({'token': token, 'timestamp': timestamp}, f)
+    except Exception as e:
+        log_message(f'Error saving token data: {e}', xbmc.LOGERROR)
+
+
+def load_token_data():
+    # Load the token and timestamp from a file
+    if os.path.exists(TOKEN_FILE_PATH):
+        try:
+            with open(TOKEN_FILE_PATH, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            log_message(f'Error loading token data: {e}', xbmc.LOGERROR)
+            return {'token': None, 'timestamp': 0}
+    return {'token': None, 'timestamp': 0}
+
+
+def delete_token_file():
+    # Delete the token file
+    if os.path.exists(TOKEN_FILE_PATH):
+        try:
+            os.remove(TOKEN_FILE_PATH)
+        except Exception as e:
+            log_message(f'Error deleting token file: {e}', xbmc.LOGERROR)
+
+
+def handle_connection(token, invoker):
+    global timeout
+    connection_payload = generate_connection_details_payload()
+    port = connection_payload['port']
+    encrypt_and_send_payload_to_firebase(token, connection_payload, invoker)
+    listen_thread = threading.Thread(target=start_listening, args=("0.0.0.0", port, timeout))
+    listen_thread.start()
 
 
 def show_join_dialog():
     # Create an instance of the Dialog class
     dialog = xbmcgui.Dialog()
-
     # Show an input box and get the user input
     # The input type xbmcgui.INPUT_ALPHANUM allows alphanumeric input
     user_input = dialog.input("Enter Join Information", type=xbmcgui.INPUT_ALPHANUM)
-
     # Check if the user canceled the dialog
     if user_input:
         # User clicked OK and entered some text
@@ -35,6 +78,10 @@ def show_join_dialog():
                 xbmcgui.Dialog().notification('Join Info', 'Error loading connection information')
             else:
                 xbmcgui.Dialog().notification('Join Info', f'IP: {ip_address}, Port: {port}')
+
+                handle_connection_thread = threading.Thread(target=handle_connection,
+                                                            args=(user_input, 'client'))
+                handle_connection_thread.start()
                 join_p2p_session(ip_address, port)
     else:
         # User clicked Cancel
@@ -66,20 +113,31 @@ class JoinOrCreateDialog(pyxbmct.AddonDialogWindow):
 
     def on_join_clicked(self):
         # Handle Join button click
-        show_join_dialog()
+        join_dialog_thread = threading.Thread(target=show_join_dialog)
+        join_dialog_thread.start()
         self.close()
 
     def on_create_clicked(self):
-        # Handle Create button click
-        timeout = 60
-        connection_payload = generate_connection_details_payload()
-        public_ip = connection_payload['public_ip']
-        port = connection_payload['port']
-        token = generate_token_and_send_to_firebase(6, connection_payload)
-        listen_thread = threading.Thread(target=start_listening, args=("0.0.0.0", port, timeout))
-        listen_thread.start()
-        token_dialog_thread = threading.Thread(target=show_token_dialog, args=(token, timeout))
-        token_dialog_thread.start()
+        global timeout
+        current_time = int(time.time())
+        data = load_token_data()
+        current_token = data.get('token')
+        current_token_timestamp = data.get('timestamp', 0)
+        if not current_token or (current_time - current_token_timestamp > timeout):
+            # Token is not valid, delete any existing token file.
+            delete_token_file()  # Delete old token if it exists.
+            token = generate_token(6)
+            save_token_data(token, current_time)
+            token_dialog_thread = threading.Thread(target=show_token_dialog,
+                                                   args=(token, timeout))
+            token_dialog_thread.start()
+            handle_connection_thread = threading.Thread(target=handle_connection, args=(token, 'host'))
+            handle_connection_thread.start()
+        else:
+            remaining_time = timeout - (current_time - current_token_timestamp)
+            token_dialog_thread = threading.Thread(target=show_token_dialog,
+                                                   args=(current_token, remaining_time))
+            token_dialog_thread.start()
         self.close()
 
 
@@ -94,6 +152,7 @@ def show_token_dialog(token, duration=300):
         for i in range(duration, 0, -1):
             time.sleep(1)
         cleanup_expired_tokens(duration - 1)  # Delete expired tokens after countdown
+        delete_token_file()  # Delete the token file
 
     dialog = xbmcgui.DialogProgress()
     dialog.create('Token Information')

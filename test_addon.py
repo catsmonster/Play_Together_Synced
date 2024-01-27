@@ -18,5 +18,5 @@ def show_token_dialog(token, duration=300):
 
 
 def test_token_dialog():
-    generate_token = firebase_handler.generate_token_and_send_to_firebase()
+    generate_token = firebase_handler.generate_token()
     show_token_dialog(generate_token, 5)
