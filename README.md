@@ -4,4 +4,4 @@ This addon will eventually allow Kodi clients to sync playback over the internet
   It also attempts to make a TCP connection (this part hasn't been tested thoroughly yet).
   There is a menu to choose to create or join a session, and the connection information in firebase is encrypted.
   Still a long way to go, but it's getting a shape.</p>
-<img src="fanart.png" alt="Artwork" width="50%">
+<img src="fanart.png" alt="Artwork" width="100%">
